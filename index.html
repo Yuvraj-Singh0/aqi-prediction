@@ -1,1284 +1,900 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>AQI Prediction Dashboard</title>
-  <link
-    href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;600;800&display=swap"
-    rel="stylesheet"
-  />
-  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
-
-  <style>
-    /* ─── Variables ─────────────────────────────────────── */
-    :root {
-      --bg:       #0a0e17;
-      --surface:  #111827;
-      --surface2: #1c2535;
-      --border:   #232f45;
-      --text:     #e2e8f0;
-      --muted:    #64748b;
-      --accent:   #38bdf8;
-      --accent2:  #818cf8;
-      --green:    #00e400;
-      --radius:   12px;
-      --mono:     'Space Mono', monospace;
-      --sans:     'Syne', sans-serif;
-    }
-
-    /* ─── Reset ─────────────────────────────────────────── */
-    *, *::before, *::after {
-      box-sizing: border-box;
-      margin: 0;
-      padding: 0;
-    }
-
-    body {
-      background: var(--bg);
-      color: var(--text);
-      font-family: var(--sans);
-      min-height: 100vh;
-      line-height: 1.6;
-      overflow-x: hidden;
-    }
-
-    /* ─── Layout ─────────────────────────────────────────── */
-    .wrapper {
-      max-width: 1180px;
-      margin: 0 auto;
-      padding: 0 24px 80px;
-    }
-
-    /* ─── Header ─────────────────────────────────────────── */
-    header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 32px 0 36px;
-      border-bottom: 1px solid var(--border);
-    }
-
-    .logo {
-      display: flex;
-      align-items: center;
-      gap: 14px;
-    }
-
-    .logo-icon {
-      width: 44px;
-      height: 44px;
-      background: linear-gradient(135deg, var(--accent), var(--accent2));
-      border-radius: 10px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 22px;
-    }
-
-    .logo h1 {
-      font-size: 1.5rem;
-      font-weight: 800;
-      background: linear-gradient(90deg, var(--accent), var(--accent2));
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-    }
-
-    .header-right {
-      display: flex;
-      align-items: center;
-      gap: 14px;
-    }
-
-    /* ─── Status pill ────────────────────────────────────── */
-    .status-pill {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 999px;
-      padding: 8px 18px;
-      font-family: var(--mono);
-      font-size: 0.75rem;
-      color: var(--muted);
-    }
-
-    .status-dot {
-      width: 8px;
-      height: 8px;
-      border-radius: 50%;
-      background: #ef4444;
-      animation: pulse 2s infinite;
-    }
-
-    .status-dot.connected { background: var(--green); }
-
-    @keyframes pulse {
-      0%, 100% { opacity: 1; }
-      50%       { opacity: 0.4; }
-    }
-
-    /* ─── AI Chat toggle ─────────────────────────────────── */
-    .chat-toggle-btn {
-      background: linear-gradient(135deg, #10b981, #34d399);
-      border: none;
-      color: #fff;
-      padding: 10px 18px;
-      border-radius: 8px;
-      font-family: var(--sans);
-      font-size: 0.85rem;
-      font-weight: 700;
-      cursor: pointer;
-      transition: opacity .2s;
-    }
-
-    .chat-toggle-btn:hover { opacity: .85; }
-
-    /* ─── Main grid ──────────────────────────────────────── */
-    .main-grid {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 24px;
-      margin-top: 28px;
-    }
-
-    @media (max-width: 768px) {
-      .main-grid { grid-template-columns: 1fr; }
-    }
-
-    /* ─── Card ───────────────────────────────────────────── */
-    .card {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      padding: 28px;
-    }
-
-    .card-title {
-      font-size: 0.7rem;
-      font-weight: 700;
-      letter-spacing: 0.12em;
-      text-transform: uppercase;
-      color: var(--muted);
-      margin-bottom: 20px;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-
-    .card-title::before {
-      content: '';
-      display: block;
-      width: 3px;
-      height: 14px;
-      background: linear-gradient(to bottom, var(--accent), var(--accent2));
-      border-radius: 2px;
-    }
-
-    /* ─── Location search ────────────────────────────────── */
-    .location-row {
-      display: flex;
-      gap: 10px;
-      margin-bottom: 18px;
-    }
-
-    .location-input {
-      flex: 1;
-      background: var(--surface2);
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      padding: 11px 14px;
-      font-family: var(--sans);
-      font-size: 0.9rem;
-      color: var(--text);
-      outline: none;
-      transition: border-color .2s;
-    }
-
-    .location-input:focus { border-color: var(--accent); }
-
-    .location-input::placeholder { color: var(--muted); }
-
-    .location-btn {
-      background: linear-gradient(135deg, #f59e0b, #d97706);
-      color: #fff;
-      border: none;
-      border-radius: 8px;
-      padding: 11px 20px;
-      font-family: var(--sans);
-      font-size: 0.85rem;
-      font-weight: 700;
-      cursor: pointer;
-      transition: opacity .2s;
-      white-space: nowrap;
-    }
-
-    .location-btn:hover          { opacity: .88; }
-    .location-btn:disabled       { opacity: .5; cursor: not-allowed; }
-
-    .location-status {
-      font-family: var(--mono);
-      font-size: 0.78rem;
-      color: var(--muted);
-      margin-bottom: 16px;
-      min-height: 18px;
-    }
-
-    .location-status.success { color: #10b981; }
-    .location-status.error   { color: #ef4444; }
-
-    /* ─── Pollutant grid ─────────────────────────────────── */
-    .pollutants-grid {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 14px;
-    }
-
-    .field {
-      display: flex;
-      flex-direction: column;
-      gap: 5px;
-    }
-
-    .field label {
-      font-size: 0.7rem;
-      font-weight: 700;
-      letter-spacing: 0.06em;
-      text-transform: uppercase;
-      color: var(--muted);
-    }
-
-    .field input {
-      background: var(--surface2);
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      padding: 11px 14px;
-      font-family: var(--mono);
-      font-size: 0.9rem;
-      color: var(--text);
-      outline: none;
-      transition: border-color .2s, box-shadow .2s;
-    }
-
-    .field input:focus {
-      border-color: var(--accent);
-      box-shadow: 0 0 0 3px rgba(56, 189, 248, .12);
-    }
-
-    .field input.error { border-color: #f87171; }
-
-    .field .unit {
-      font-family: var(--mono);
-      font-size: 0.65rem;
-      color: var(--muted);
-    }
-
-    .field .err-msg {
-      font-size: 0.65rem;
-      color: #f87171;
-      display: none;
-    }
-
-    .field .err-msg.show { display: block; }
-
-    /* ─── Action buttons ─────────────────────────────────── */
-    .actions {
-      display: flex;
-      gap: 10px;
-      margin-top: 20px;
-      flex-wrap: wrap;
-    }
-
-    .btn {
-      padding: 11px 22px;
-      border-radius: 8px;
-      font-family: var(--sans);
-      font-size: 0.85rem;
-      font-weight: 700;
-      cursor: pointer;
-      border: none;
-      transition: opacity .2s, transform .1s;
-    }
-
-    .btn:active  { transform: scale(.97); }
-    .btn:disabled { opacity: .5; cursor: not-allowed; }
-
-    .btn-predict {
-      background: linear-gradient(135deg, var(--accent), var(--accent2));
-      color: #0a0e17;
-      flex: 1;
-    }
-
-    .btn-predict:hover { opacity: .88; }
-
-    .btn-sample {
-      background: var(--surface2);
-      color: var(--muted);
-      border: 1px solid var(--border);
-    }
-
-    .btn-sample:hover { color: var(--text); border-color: var(--accent); }
-
-    .btn-healthy {
-      background: #10b981;
-      color: #fff;
-    }
-
-    .btn-healthy:hover { opacity: .88; }
-
-    .btn-clear {
-      background: var(--surface2);
-      color: var(--muted);
-      border: 1px solid var(--border);
-    }
-
-    .btn-clear:hover { color: var(--text); border-color: var(--accent); }
-
-    /* ─── Result panel ───────────────────────────────────── */
-    .result-card {
-      display: flex;
-      flex-direction: column;
-      gap: 18px;
-    }
-
-    .placeholder-msg {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      height: 180px;
-      color: var(--muted);
-      font-family: var(--mono);
-      font-size: 0.85rem;
-      border: 1px dashed var(--border);
-      border-radius: 8px;
-    }
-
-    .aqi-display {
-      display: flex;
-      align-items: center;
-      gap: 22px;
-    }
-
-    .aqi-number {
-      font-family: var(--mono);
-      font-size: 5rem;
-      font-weight: 700;
-      line-height: 1;
-    }
-
-    .aqi-meta { flex: 1; }
-
-    .aqi-badge {
-      display: inline-block;
-      padding: 5px 16px;
-      border-radius: 999px;
-      font-size: 0.78rem;
-      font-weight: 700;
-      letter-spacing: 0.05em;
-      text-transform: uppercase;
-      background: var(--surface2);
-      border: 2px solid var(--border);
-      margin-bottom: 6px;
-    }
-
-    .aqi-sub {
-      font-family: var(--mono);
-      font-size: 0.7rem;
-      color: var(--muted);
-    }
-
-    .gauge-wrap {
-      max-width: 320px;
-      margin: 0 auto;
-      width: 100%;
-    }
-
-    /* ─── Scale legend ───────────────────────────────────── */
-    .scale-legend {
-      display: flex;
-      gap: 6px;
-      flex-wrap: wrap;
-    }
-
-    .scale-chip {
-      display: flex;
-      align-items: center;
-      gap: 5px;
-      padding: 4px 10px;
-      border-radius: 6px;
-      font-size: 0.62rem;
-      font-weight: 600;
-      background: var(--surface2);
-      border: 1px solid var(--border);
-      color: var(--muted);
-    }
-
-    .scale-dot {
-      width: 8px;
-      height: 8px;
-      border-radius: 50%;
-    }
-
-    /* ─── History table ──────────────────────────────────── */
-    .history-card { margin-top: 24px; }
-
-    .history-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 16px;
-    }
-
-    .btn-clear-history {
-      background: #ef4444;
-      color: #fff;
-      border: none;
-      padding: 8px 16px;
-      border-radius: 6px;
-      font-family: var(--sans);
-      font-size: 0.8rem;
-      font-weight: 700;
-      cursor: pointer;
-      transition: opacity .2s;
-    }
-
-    .btn-clear-history:hover { opacity: .88; }
-
-    .table-wrap { overflow-x: auto; }
-
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      font-family: var(--mono);
-      font-size: 0.72rem;
-    }
-
-    thead th {
-      text-align: left;
-      padding: 10px 12px;
-      color: var(--muted);
-      font-weight: 700;
-      letter-spacing: 0.06em;
-      border-bottom: 1px solid var(--border);
-      white-space: nowrap;
-    }
-
-    tbody tr:hover { background: var(--surface2); }
-
-    tbody td {
-      padding: 10px 12px;
-      border-bottom: 1px solid rgba(35, 47, 69, .5);
-      white-space: nowrap;
-    }
-
-    .badge-sm {
-      padding: 2px 9px;
-      border-radius: 999px;
-      font-size: 0.62rem;
-      font-weight: 700;
-      border: 1.5px solid currentColor;
-    }
-
-    .empty-row td {
-      text-align: center;
-      color: var(--muted);
-      padding: 30px;
-      border-bottom: none;
-    }
-
-    /* ─── Spinner ────────────────────────────────────────── */
-    .spinner {
-      display: inline-block;
-      width: 14px;
-      height: 14px;
-      border: 2px solid rgba(56, 189, 248, .3);
-      border-top-color: var(--accent);
-      border-radius: 50%;
-      animation: spin .6s linear infinite;
-      vertical-align: middle;
-      margin-right: 8px;
-    }
-
-    @keyframes spin { to { transform: rotate(360deg); } }
-
-    /* ─── Toast ──────────────────────────────────────────── */
-    #toast {
-      position: fixed;
-      bottom: 28px;
-      right: 28px;
-      z-index: 999;
-      background: var(--surface2);
-      border: 1px solid var(--border);
-      border-radius: 10px;
-      padding: 14px 22px;
-      font-size: 0.82rem;
-      max-width: 320px;
-      box-shadow: 0 8px 32px rgba(0,0,0,.4);
-      transform: translateY(120px);
-      opacity: 0;
-      transition: all .35s cubic-bezier(.34, 1.56, .64, 1);
-    }
-
-    #toast.show           { transform: translateY(0); opacity: 1; }
-    #toast.show.error     { border-color: #f87171; color: #f87171; }
-
-    /* ─── Chatbot panel ──────────────────────────────────── */
-    .chatbot-panel {
-      display: none;
-      position: fixed;
-      top: 0;
-      right: 0;
-      width: 370px;
-      height: 100vh;
-      background: var(--surface);
-      border-left: 1px solid var(--border);
-      z-index: 900;
-      flex-direction: column;
-      box-shadow: -6px 0 24px rgba(0,0,0,.4);
-    }
-
-    .chatbot-panel.open { display: flex; }
-
-    .chatbot-panel-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding: 18px 20px;
-      border-bottom: 1px solid var(--border);
-      background: var(--surface2);
-    }
-
-    .chatbot-panel-header h3 {
-      font-size: 1rem;
-      font-weight: 700;
-    }
-
-    .chatbot-close {
-      background: none;
-      border: none;
-      color: var(--muted);
-      font-size: 1.5rem;
-      cursor: pointer;
-      line-height: 1;
-    }
-
-    .chatbot-close:hover { color: var(--text); }
-
-    .chatbot-messages {
-      flex: 1;
-      overflow-y: auto;
-      padding: 18px;
-      display: flex;
-      flex-direction: column;
-      gap: 12px;
-    }
-
-    .chat-msg {
-      padding: 10px 14px;
-      border-radius: 10px;
-      font-size: 0.88rem;
-      line-height: 1.5;
-      max-width: 88%;
-      white-space: pre-wrap;
-    }
-
-    .chat-msg.bot {
-      align-self: flex-start;
-      background: var(--surface2);
-      border: 1px solid var(--border);
-    }
-
-    .chat-msg.user {
-      align-self: flex-end;
-      background: var(--accent);
-      color: #0a0e17;
-    }
-
-    .chatbot-welcome {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      height: 100%;
-      text-align: center;
-      color: var(--muted);
-      padding: 20px;
-      gap: 12px;
-    }
-
-    .chatbot-welcome .icon { font-size: 3rem; }
-
-    .chatbot-footer {
-      display: flex;
-      gap: 8px;
-      padding: 14px;
-      border-top: 1px solid var(--border);
-    }
-
-    .chatbot-footer input {
-      flex: 1;
-      background: var(--surface2);
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      padding: 9px 14px;
-      color: var(--text);
-      font-family: var(--sans);
-      font-size: 0.85rem;
-      outline: none;
-    }
-
-    .chatbot-footer input:focus { border-color: var(--accent); }
-
-    .chatbot-footer button {
-      background: var(--accent);
-      color: #0a0e17;
-      border: none;
-      border-radius: 8px;
-      padding: 9px 18px;
-      font-family: var(--sans);
-      font-weight: 700;
-      cursor: pointer;
-      font-size: 0.85rem;
-      transition: opacity .2s;
-    }
-
-    .chatbot-footer button:hover { opacity: .88; }
-  </style>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>AQI Prediction System</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;600;800&display=swap" rel="stylesheet"/>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#060b14;--surface:rgba(255,255,255,0.04);--surface2:rgba(255,255,255,0.07);
+  --border:rgba(255,255,255,0.08);--text:#e2e8f0;--muted:#64748b;
+  --accent:#38bdf8;--accent2:#818cf8;--green:#10b981;--radius:14px;
+  --mono:'Space Mono',monospace;--sans:'Syne',sans-serif;
+}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--text);font-family:var(--sans);min-height:100vh;overflow-x:hidden}
+
+/* ── Sunset landscape background ── */
+.bg-canvas{position:fixed;inset:0;z-index:0;overflow:hidden}
+
+/* Sky gradient — sunset colours */
+.bg-canvas::before{
+  content:'';position:absolute;inset:0;
+  background:linear-gradient(
+    180deg,
+    #1a0533 0%,
+    #3d1052 8%,
+    #7b2d8b 16%,
+    #c0436e 26%,
+    #e8784a 36%,
+    #f5a623 44%,
+    #f7c948 50%,
+    #e8a020 56%,
+    #d4691e 62%,
+    #8b3a1a 72%,
+    #2d1a0e 85%,
+    #0a0a0f 100%
+  );
+}
+
+/* Sun glow */
+.sun{
+  position:absolute;
+  width:110px;height:110px;
+  border-radius:50%;
+  background:radial-gradient(circle,#fff8dc 0%,#ffd700 30%,#ff8c00 60%,transparent 75%);
+  left:50%;top:42%;transform:translate(-50%,-50%);
+  box-shadow:0 0 60px 30px rgba(255,200,50,0.5),0 0 120px 80px rgba(255,140,0,0.25),0 0 200px 120px rgba(255,80,0,0.12);
+  animation:sunGlow 6s ease-in-out infinite alternate;
+}
+@keyframes sunGlow{
+  0%{box-shadow:0 0 60px 30px rgba(255,200,50,0.5),0 0 120px 80px rgba(255,140,0,0.25)}
+  100%{box-shadow:0 0 80px 40px rgba(255,220,80,0.65),0 0 160px 100px rgba(255,160,0,0.3)}
+}
+
+/* Clouds */
+.cloud{position:absolute;border-radius:999px;animation:driftCloud linear infinite}
+@keyframes driftCloud{from{transform:translateX(-250px)}to{transform:translateX(120vw)}}
+
+/* Ground */
+.ground{
+  position:absolute;bottom:0;left:0;right:0;height:42%;
+  background:linear-gradient(180deg,#1a3a0a 0%,#0d2206 40%,#060f03 100%);
+  border-radius:60% 60% 0 0 / 20px 20px 0 0;
+}
+/* Ground glow from sunset */
+.ground::before{
+  content:'';position:absolute;top:0;left:0;right:0;height:4px;
+  background:linear-gradient(90deg,transparent,rgba(255,140,0,0.4),rgba(255,200,50,0.6),rgba(255,140,0,0.4),transparent);
+  border-radius:50%;
+}
+
+/* Flowers */
+.flower{position:absolute;bottom:0;display:flex;flex-direction:column;align-items:center}
+.stem{width:3px;background:linear-gradient(to top,#1a5c0a,#2d8c14);border-radius:2px}
+.bloom{position:relative;display:flex;align-items:center;justify-content:center}
+.petal{
+  position:absolute;border-radius:50% 50% 50% 0;
+  transform-origin:bottom center;
+}
+.center{
+  position:relative;z-index:2;border-radius:50%;
+  width:10px;height:10px;
+  box-shadow:0 0 4px 2px rgba(255,255,100,0.4);
+}
+
+/* Trees (silhouette) */
+.tree{position:absolute;bottom:0}
+.tree-trunk{background:#1a0e05;margin:0 auto}
+.tree-top{border-left:solid transparent;border-right:solid transparent;border-bottom:solid;margin:0 auto}
+
+/* Stars */
+.star{position:absolute;border-radius:50%;background:#fff;animation:twinkle ease-in-out infinite alternate}
+@keyframes twinkle{0%{opacity:0.1;transform:scale(0.8)}100%{opacity:0.9;transform:scale(1.2)}}
+
+/* Particles (fireflies) */
+.particles{position:absolute;inset:0;pointer-events:none}
+.dot{
+  position:absolute;border-radius:50%;
+  animation:floatDot ease-in-out infinite alternate;
+}
+@keyframes floatDot{
+  0%{transform:translate(0,0);opacity:0.2}
+  50%{opacity:0.8}
+  100%{transform:translate(20px,-30px);opacity:0.1}
+}
+
+/* Dark overlay so text is readable */
+.dark-overlay{
+  position:absolute;inset:0;
+  background:rgba(0,0,0,0.45);
+}
+
+/* ── Main wrapper ── */
+.wrapper{position:relative;z-index:1;max-width:1200px;margin:0 auto;padding:0 24px 80px}
+
+/* ── Header ── */
+header{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:28px 0 32px;
+  border-bottom:1px solid var(--border);
+  backdrop-filter:blur(10px);
+}
+.logo{display:flex;align-items:center;gap:14px}
+.logo-icon{
+  width:46px;height:46px;
+  background:linear-gradient(135deg,var(--accent),var(--accent2));
+  border-radius:12px;display:flex;align-items:center;justify-content:center;
+  font-size:22px;box-shadow:0 0 20px rgba(56,189,248,0.3);
+}
+.logo h1{
+  font-size:1.5rem;font-weight:800;
+  background:linear-gradient(90deg,var(--accent),var(--accent2));
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;
+}
+.logo p{font-size:0.72rem;color:var(--muted);margin-top:2px;font-family:var(--mono)}
+.header-right{display:flex;align-items:center;gap:12px}
+
+/* Connect button */
+.connect-btn{
+  display:flex;align-items:center;gap:8px;
+  background:var(--surface);
+  border:1px solid var(--border);
+  border-radius:999px;padding:9px 20px;
+  font-family:var(--mono);font-size:0.75rem;color:var(--muted);
+  cursor:pointer;transition:all .3s;outline:none;
+  backdrop-filter:blur(10px);
+}
+.connect-btn:hover:not(.connected):not(.connecting){border-color:var(--accent);color:var(--text);box-shadow:0 0 12px rgba(56,189,248,0.2)}
+.connect-btn.connected{border-color:var(--green);color:var(--green);cursor:default;box-shadow:0 0 12px rgba(16,185,129,0.2)}
+.connect-btn.connecting{border-color:var(--accent);color:var(--accent);cursor:wait;animation:borderGlow 1.5s infinite}
+.connect-btn.error-state{border-color:#ef4444;color:#ef4444}
+@keyframes borderGlow{0%,100%{box-shadow:0 0 0 0 rgba(56,189,248,0.3)}50%{box-shadow:0 0 0 6px rgba(56,189,248,0)}}
+.sdot{width:8px;height:8px;border-radius:50%;background:#ef4444;flex-shrink:0;animation:pulse 2s infinite}
+.sdot.on{background:var(--green)}
+.sdot.spin{background:var(--accent);animation:rotateDot 1s linear infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+@keyframes rotateDot{to{transform:rotate(360deg)}}
+
+/* AI button */
+.ai-btn{
+  background:linear-gradient(135deg,#10b981,#059669);
+  border:none;color:#fff;padding:9px 18px;border-radius:8px;
+  font-family:var(--sans);font-size:0.85rem;font-weight:700;
+  cursor:pointer;transition:all .2s;
+  box-shadow:0 0 16px rgba(16,185,129,0.3);
+}
+.ai-btn:hover{opacity:.88;box-shadow:0 0 24px rgba(16,185,129,0.4)}
+
+/* ── Loading overlay ── */
+#overlay{
+  display:none;position:fixed;inset:0;z-index:999;
+  background:rgba(6,11,20,0.95);
+  flex-direction:column;align-items:center;justify-content:center;
+  gap:22px;backdrop-filter:blur(12px);
+}
+#overlay.show{display:flex}
+.ov-icon{font-size:3.5rem;animation:bounce 1s ease infinite alternate}
+@keyframes bounce{from{transform:translateY(0)}to{transform:translateY(-14px)}}
+.ov-title{
+  font-size:1.5rem;font-weight:800;
+  background:linear-gradient(90deg,var(--accent),var(--accent2));
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;
+}
+.ov-msg{font-family:var(--mono);font-size:0.82rem;color:var(--muted);text-align:center;max-width:360px}
+.prog-track{width:360px;height:8px;background:rgba(255,255,255,0.06);border-radius:999px;overflow:hidden;border:1px solid var(--border)}
+.prog-bar{height:100%;width:0%;background:linear-gradient(90deg,var(--accent),var(--accent2));border-radius:999px;transition:width .6s ease}
+.prog-pct{font-family:var(--mono);font-size:0.75rem;color:var(--muted)}
+.steps{display:flex;flex-direction:column;gap:10px;width:360px}
+.step{display:flex;align-items:center;gap:12px;font-family:var(--mono);font-size:0.8rem;color:var(--muted)}
+.step.active{color:var(--accent)}
+.step.done{color:var(--green)}
+.sdot2{width:10px;height:10px;border-radius:50%;border:2px solid rgba(255,255,255,0.1);flex-shrink:0}
+.step.active .sdot2{background:var(--accent);border-color:var(--accent);animation:pulse 1s infinite}
+.step.done  .sdot2{background:var(--green);border-color:var(--green)}
+
+/* ── Grid ── */
+.main-grid{display:grid;grid-template-columns:1fr 1fr;gap:22px;margin-top:28px}
+@media(max-width:768px){.main-grid{grid-template-columns:1fr}}
+
+/* ── Glass card ── */
+.card{
+  background:var(--surface);
+  border:1px solid var(--border);
+  border-radius:var(--radius);
+  padding:26px;
+  backdrop-filter:blur(16px);
+  transition:border-color .3s;
+}
+.card:hover{border-color:rgba(255,255,255,0.12)}
+.card-title{
+  font-size:0.68rem;font-weight:700;letter-spacing:.14em;
+  text-transform:uppercase;color:var(--muted);margin-bottom:20px;
+  display:flex;align-items:center;gap:8px;
+}
+.card-title::before{
+  content:'';display:block;width:3px;height:14px;
+  background:linear-gradient(to bottom,var(--accent),var(--accent2));border-radius:2px;
+}
+
+/* ── Location ── */
+.loc-row{display:flex;gap:10px;margin-bottom:16px}
+.loc-input{
+  flex:1;background:var(--surface2);border:1px solid var(--border);
+  border-radius:8px;padding:11px 14px;font-family:var(--sans);
+  font-size:.88rem;color:var(--text);outline:none;transition:border-color .2s;
+  backdrop-filter:blur(8px);
+}
+.loc-input:focus{border-color:var(--accent)}
+.loc-input::placeholder{color:var(--muted)}
+.loc-btn{
+  background:linear-gradient(135deg,#f59e0b,#d97706);color:#fff;
+  border:none;border-radius:8px;padding:11px 18px;
+  font-family:var(--sans);font-size:.85rem;font-weight:700;
+  cursor:pointer;transition:opacity .2s;white-space:nowrap;
+  box-shadow:0 0 12px rgba(245,158,11,0.3);
+}
+.loc-btn:hover{opacity:.88}.loc-btn:disabled{opacity:.5;cursor:not-allowed}
+.loc-status{font-family:var(--mono);font-size:.75rem;color:var(--muted);margin-bottom:14px;min-height:16px}
+.loc-status.ok{color:var(--green)}.loc-status.err{color:#ef4444}
+
+/* ── Pollutant fields ── */
+.pol-grid{display:grid;grid-template-columns:1fr 1fr;gap:13px}
+.field{display:flex;flex-direction:column;gap:5px}
+.field label{font-size:.68rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--muted)}
+.field input{
+  background:var(--surface2);border:1px solid var(--border);
+  border-radius:8px;padding:11px 13px;font-family:var(--mono);
+  font-size:.88rem;color:var(--text);outline:none;
+  transition:border-color .2s,box-shadow .2s;backdrop-filter:blur(8px);
+}
+.field input:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(56,189,248,.1)}
+.field input.error{border-color:#f87171}
+.field .unit{font-family:var(--mono);font-size:.62rem;color:var(--muted)}
+.field .emsg{font-size:.62rem;color:#f87171;display:none}
+.field .emsg.show{display:block}
+
+/* ── Buttons ── */
+.actions{display:flex;gap:10px;margin-top:18px;flex-wrap:wrap}
+.btn{
+  padding:11px 20px;border-radius:8px;font-family:var(--sans);
+  font-size:.85rem;font-weight:700;cursor:pointer;border:none;
+  transition:all .2s;
+}
+.btn:active{transform:scale(.97)}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.btn-predict{
+  background:linear-gradient(135deg,var(--accent),var(--accent2));
+  color:#060b14;flex:1;box-shadow:0 0 16px rgba(56,189,248,0.25);
+}
+.btn-predict:hover{opacity:.88;box-shadow:0 0 24px rgba(56,189,248,0.4)}
+.btn-sec{background:var(--surface2);color:var(--muted);border:1px solid var(--border)}
+.btn-sec:hover{color:var(--text);border-color:rgba(255,255,255,0.2)}
+.btn-healthy{background:rgba(16,185,129,0.15);color:#10b981;border:1px solid rgba(16,185,129,0.3)}
+.btn-healthy:hover{background:rgba(16,185,129,0.25)}
+
+/* ── Result ── */
+.result-card{display:flex;flex-direction:column;gap:18px}
+.placeholder{
+  display:flex;align-items:center;justify-content:center;
+  height:180px;color:var(--muted);font-family:var(--mono);
+  font-size:.82rem;border:1px dashed var(--border);border-radius:10px;
+  letter-spacing:.04em;
+}
+.aqi-display{display:flex;align-items:center;gap:20px}
+.aqi-num{font-family:var(--mono);font-size:5rem;font-weight:700;line-height:1}
+.aqi-meta{flex:1}
+.aqi-badge{
+  display:inline-block;padding:5px 16px;border-radius:999px;
+  font-size:.75rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase;
+  background:var(--surface2);border:2px solid var(--border);margin-bottom:6px;
+}
+.aqi-sub{font-family:var(--mono);font-size:.68rem;color:var(--muted)}
+.gauge-wrap{max-width:300px;margin:0 auto;width:100%}
+.scale-leg{display:flex;gap:5px;flex-wrap:wrap}
+.chip{
+  display:flex;align-items:center;gap:4px;padding:4px 9px;
+  border-radius:6px;font-size:.6rem;font-weight:600;
+  background:var(--surface2);border:1px solid var(--border);color:var(--muted);
+}
+.chip-dot{width:7px;height:7px;border-radius:50%}
+
+/* ── History ── */
+.hist-card{margin-top:22px}
+.hist-hdr{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px}
+.btn-clrhist{
+  background:rgba(239,68,68,0.15);color:#ef4444;border:1px solid rgba(239,68,68,0.3);
+  padding:7px 14px;border-radius:6px;font-family:var(--sans);font-size:.78rem;font-weight:700;
+  cursor:pointer;transition:all .2s;
+}
+.btn-clrhist:hover{background:rgba(239,68,68,0.25)}
+.tbl-wrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-family:var(--mono);font-size:.7rem}
+thead th{
+  text-align:left;padding:10px 12px;color:var(--muted);font-weight:700;
+  letter-spacing:.07em;border-bottom:1px solid var(--border);white-space:nowrap;
+}
+tbody tr{transition:background .15s}
+tbody tr:hover{background:var(--surface2)}
+tbody td{padding:10px 12px;border-bottom:1px solid rgba(255,255,255,0.04);white-space:nowrap}
+.badge{padding:2px 9px;border-radius:999px;font-size:.6rem;font-weight:700;border:1.5px solid currentColor}
+.empty-row td{text-align:center;color:var(--muted);padding:32px;border-bottom:none}
+
+/* ── Spinner ── */
+.spin{
+  display:inline-block;width:14px;height:14px;
+  border:2px solid rgba(56,189,248,.2);border-top-color:var(--accent);
+  border-radius:50%;animation:spinA .6s linear infinite;
+  vertical-align:middle;margin-right:8px;
+}
+@keyframes spinA{to{transform:rotate(360deg)}}
+
+/* ── Toast ── */
+#toast{
+  position:fixed;bottom:28px;right:28px;z-index:1000;
+  background:rgba(17,24,39,0.95);border:1px solid var(--border);
+  border-radius:10px;padding:13px 20px;font-size:.8rem;
+  max-width:320px;box-shadow:0 8px 32px rgba(0,0,0,.5);
+  backdrop-filter:blur(16px);
+  transform:translateY(120px);opacity:0;
+  transition:all .35s cubic-bezier(.34,1.56,.64,1);
+}
+#toast.show{transform:translateY(0);opacity:1}
+#toast.show.err{border-color:rgba(239,68,68,.5);color:#f87171}
+
+/* Flower sway */
+@keyframes swayA{0%{transform:rotate(-4deg)}100%{transform:rotate(4deg)}}
+@keyframes swayB{0%{transform:rotate(3deg)}100%{transform:rotate(-3deg)}}
+
+/* ── Chatbot ── */
+.chat-panel{
+  display:none;position:fixed;top:0;right:0;width:370px;height:100vh;
+  background:rgba(10,15,26,0.97);border-left:1px solid var(--border);
+  z-index:900;flex-direction:column;
+  box-shadow:-8px 0 32px rgba(0,0,0,.5);backdrop-filter:blur(20px);
+}
+.chat-panel.open{display:flex}
+.chat-hdr{
+  display:flex;justify-content:space-between;align-items:center;
+  padding:18px 20px;border-bottom:1px solid var(--border);background:var(--surface);
+}
+.chat-hdr h3{font-size:1rem;font-weight:700}
+.chat-close{background:none;border:none;color:var(--muted);font-size:1.5rem;cursor:pointer;line-height:1}
+.chat-close:hover{color:var(--text)}
+.chat-msgs{flex:1;overflow-y:auto;padding:18px;display:flex;flex-direction:column;gap:12px}
+.msg{padding:10px 14px;border-radius:10px;font-size:.87rem;line-height:1.5;max-width:88%;white-space:pre-wrap}
+.msg.bot{align-self:flex-start;background:var(--surface2);border:1px solid var(--border)}
+.msg.user{align-self:flex-end;background:linear-gradient(135deg,var(--accent),var(--accent2));color:#060b14}
+.chat-welcome{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;text-align:center;color:var(--muted);padding:24px;gap:14px}
+.chat-foot{display:flex;gap:8px;padding:14px;border-top:1px solid var(--border)}
+.chat-foot input{
+  flex:1;background:var(--surface2);border:1px solid var(--border);
+  border-radius:8px;padding:9px 14px;color:var(--text);font-family:var(--sans);
+  font-size:.85rem;outline:none;
+}
+.chat-foot input:focus{border-color:var(--accent)}
+.chat-foot button{
+  background:linear-gradient(135deg,var(--accent),var(--accent2));color:#060b14;
+  border:none;border-radius:8px;padding:9px 18px;font-family:var(--sans);
+  font-weight:700;cursor:pointer;transition:opacity .2s;
+}
+.chat-foot button:hover{opacity:.88}
+</style>
 </head>
-
 <body>
+
+<!-- Background -->
+<div class="bg-canvas">
+  <!-- Stars in sky -->
+  <div id="stars"></div>
+  <!-- Sun -->
+  <div class="sun"></div>
+  <!-- Clouds -->
+  <div id="clouds"></div>
+  <!-- Ground -->
+  <div class="ground"></div>
+  <!-- Flowers and trees -->
+  <div id="flowers"></div>
+  <!-- Fireflies -->
+  <div class="particles" id="particles"></div>
+  <!-- Dark overlay for readability -->
+  <div class="dark-overlay"></div>
+</div>
+
+<!-- Loading Overlay -->
+<div id="overlay">
+  <div class="ov-icon">🌫️</div>
+  <div class="ov-title">Setting Up AQI System</div>
+  <div class="ov-msg" id="ovMsg">Initialising pipeline...</div>
+  <div class="prog-track"><div class="prog-bar" id="progBar"></div></div>
+  <div class="prog-pct" id="progPct">0%</div>
+  <div class="steps">
+    <div class="step" id="s1"><div class="sdot2"></div>Generating & preprocessing 8,000 records</div>
+    <div class="step" id="s2"><div class="sdot2"></div>Training RF + XGBoost stacking ensemble</div>
+    <div class="step" id="s3"><div class="sdot2"></div>Starting Flask API &amp; connecting</div>
+  </div>
+</div>
+
 <div class="wrapper">
 
   <!-- Header -->
   <header>
     <div class="logo">
       <div class="logo-icon">🌫️</div>
-      <h1>AQI Prediction</h1>
+      <div>
+        <h1>AQI Prediction</h1>
+        <p>Real-time Air Quality Intelligence</p>
+      </div>
     </div>
     <div class="header-right">
-      <button class="chat-toggle-btn" onclick="toggleChat()">💬Assistant</button>
-      <div class="status-pill">
-        <span class="status-dot" id="statusDot"></span>
-        <span id="statusText">Connecting…</span>
-      </div>
+      <button class="ai-btn" onclick="toggleChat()">💬 AI Assistant</button>
+      <button class="connect-btn" id="conBtn" onclick="handleConnect()">
+        <span class="sdot" id="sdot"></span>
+        <span id="conTxt">Click to Connect</span>
+      </button>
     </div>
   </header>
 
   <!-- Main Grid -->
   <div class="main-grid">
 
-    <!-- Left: Input Form -->
+    <!-- Input Card -->
     <div class="card">
       <p class="card-title">Pollutant Concentrations</p>
 
-      <!-- Location Search -->
-      <div class="location-row">
-        <input
-          type="text"
-          class="location-input"
-          id="locationInput"
-          placeholder="Enter city (e.g. Delhi, New York)…"
-        />
-        <button class="location-btn" id="locationBtn" onclick="fetchCity()">📍 Get Data</button>
+      <div class="loc-row">
+        <input class="loc-input" id="locIn" placeholder="Enter city (Delhi, Mumbai, London…)"/>
+        <button class="loc-btn" id="locBtn" onclick="getCity()">📍 Get Data</button>
       </div>
-      <div class="location-status" id="locationStatus"></div>
+      <div class="loc-status" id="locSt"></div>
 
-      <!-- Pollutant Fields -->
-      <div class="pollutants-grid">
-        <div class="field">
-          <label for="pm25">PM2.5</label>
-          <input type="number" id="pm25" min="0" max="500"  step="0.1" placeholder="0 – 500" />
-          <span class="unit">µg/m³</span>
-          <span class="err-msg" id="pm25-err"></span>
-        </div>
-        <div class="field">
-          <label for="pm10">PM10</label>
-          <input type="number" id="pm10" min="0" max="604"  step="0.1" placeholder="0 – 604" />
-          <span class="unit">µg/m³</span>
-          <span class="err-msg" id="pm10-err"></span>
-        </div>
-        <div class="field">
-          <label for="no2">NO₂</label>
-          <input type="number" id="no2"  min="0" max="2049" step="0.1" placeholder="0 – 2049" />
-          <span class="unit">ppb</span>
-          <span class="err-msg" id="no2-err"></span>
-        </div>
-        <div class="field">
-          <label for="so2">SO₂</label>
-          <input type="number" id="so2"  min="0" max="1004" step="0.1" placeholder="0 – 1004" />
-          <span class="unit">ppb</span>
-          <span class="err-msg" id="so2-err"></span>
-        </div>
-        <div class="field">
-          <label for="co">CO</label>
-          <input type="number" id="co"   min="0" max="50.4" step="0.1" placeholder="0 – 50.4" />
-          <span class="unit">ppm</span>
-          <span class="err-msg" id="co-err"></span>
-        </div>
-        <div class="field">
-          <label for="o3">O₃</label>
-          <input type="number" id="o3"   min="0" max="200"  step="0.1" placeholder="0 – 200" />
-          <span class="unit">ppb</span>
-          <span class="err-msg" id="o3-err"></span>
-        </div>
+      <div class="pol-grid">
+        <div class="field"><label>PM2.5</label><input type="number" id="pm25" min="0" max="500" step="0.1" placeholder="0 – 500"/><span class="unit">µg/m³</span><span class="emsg" id="pm25e"></span></div>
+        <div class="field"><label>PM10</label><input type="number" id="pm10" min="0" max="604" step="0.1" placeholder="0 – 604"/><span class="unit">µg/m³</span><span class="emsg" id="pm10e"></span></div>
+        <div class="field"><label>NO₂</label><input type="number" id="no2" min="0" max="2049" step="0.1" placeholder="0 – 2049"/><span class="unit">ppb</span><span class="emsg" id="no2e"></span></div>
+        <div class="field"><label>SO₂</label><input type="number" id="so2" min="0" max="1004" step="0.1" placeholder="0 – 1004"/><span class="unit">ppb</span><span class="emsg" id="so2e"></span></div>
+        <div class="field"><label>CO</label><input type="number" id="co" min="0" max="50.4" step="0.1" placeholder="0 – 50.4"/><span class="unit">ppm</span><span class="emsg" id="coe"></span></div>
+        <div class="field"><label>O₃</label><input type="number" id="o3" min="0" max="200" step="0.1" placeholder="0 – 200"/><span class="unit">ppb</span><span class="emsg" id="o3e"></span></div>
       </div>
 
-      <!-- Buttons -->
       <div class="actions">
-        <button class="btn btn-predict" id="predictBtn" onclick="handlePredict()">
-          Predict AQI
-        </button>
-        <button class="btn btn-sample"  onclick="fillSample()">Sample Data</button>
-        <button class="btn btn-healthy" onclick="fillHealthy()">Healthy Data</button>
-        <button class="btn btn-clear"   onclick="clearForm()">Clear</button>
+        <button class="btn btn-predict" id="predBtn" onclick="doPredict()">Predict AQI</button>
+        <button class="btn btn-sec" onclick="fillSample()">Sample</button>
+        <button class="btn btn-healthy" onclick="fillHealthy()">Healthy</button>
+        <button class="btn btn-sec" onclick="clearForm()">Clear</button>
       </div>
     </div>
 
-    <!-- Right: Result -->
+    <!-- Result Card -->
     <div class="card result-card">
       <p class="card-title">Prediction Result</p>
-
-      <div id="resultArea">
-        <div class="placeholder-msg">← Enter values and click Predict</div>
-      </div>
-
-      <div class="scale-legend">
-        <div class="scale-chip"><span class="scale-dot" style="background:#00e400"></span>Good</div>
-        <div class="scale-chip"><span class="scale-dot" style="background:#ffff00"></span>Moderate</div>
-        <div class="scale-chip"><span class="scale-dot" style="background:#ff7e00"></span>Sensitive</div>
-        <div class="scale-chip"><span class="scale-dot" style="background:#ff0000"></span>Unhealthy</div>
-        <div class="scale-chip"><span class="scale-dot" style="background:#8f3f97"></span>Very Unhealthy</div>
-        <div class="scale-chip"><span class="scale-dot" style="background:#7e0023"></span>Hazardous</div>
+      <div id="result"><div class="placeholder">← Enter values and click Predict</div></div>
+      <div class="scale-leg">
+        <div class="chip"><span class="chip-dot" style="background:#00e400"></span>Good</div>
+        <div class="chip"><span class="chip-dot" style="background:#ffff00"></span>Moderate</div>
+        <div class="chip"><span class="chip-dot" style="background:#ff7e00"></span>Sensitive</div>
+        <div class="chip"><span class="chip-dot" style="background:#ff0000"></span>Unhealthy</div>
+        <div class="chip"><span class="chip-dot" style="background:#8f3f97"></span>Very Unhlthy</div>
+        <div class="chip"><span class="chip-dot" style="background:#7e0023"></span>Hazardous</div>
       </div>
     </div>
   </div>
 
-  <!-- History Table -->
-  <div class="card history-card">
-    <div class="history-header">
+  <!-- History -->
+  <div class="card hist-card">
+    <div class="hist-hdr">
       <p class="card-title" style="margin-bottom:0">
         Prediction History
-        <span style="cursor:pointer;margin-left:8px" onclick="loadHistory()" title="Refresh">↻</span>
+        <span style="cursor:pointer;margin-left:8px;color:var(--muted)" onclick="loadHist()" title="Refresh">↻</span>
       </p>
-      <button class="btn-clear-history" onclick="clearHistory()">🗑 Clear History</button>
+      <button class="btn-clrhist" onclick="clearHist()">🗑 Clear History</button>
     </div>
-    <div class="table-wrap">
+    <div class="tbl-wrap">
       <table>
-        <thead>
-          <tr>
-            <th>#</th><th>Timestamp</th><th>PM2.5</th><th>PM10</th>
-            <th>NO₂</th><th>SO₂</th><th>CO</th><th>O₃</th>
-            <th>AQI (EPA)</th><th>AQI (Model)</th><th>Category</th>
-          </tr>
-        </thead>
-        <tbody id="historyBody">
-          <tr class="empty-row"><td colspan="11">No predictions yet.</td></tr>
-        </tbody>
+        <thead><tr><th>#</th><th>Timestamp</th><th>PM2.5</th><th>PM10</th><th>NO₂</th><th>SO₂</th><th>CO</th><th>O₃</th><th>AQI (EPA)</th><th>AQI (Model)</th><th>Category</th></tr></thead>
+        <tbody id="histBody"><tr class="empty-row"><td colspan="11">No predictions yet.</td></tr></tbody>
       </table>
     </div>
   </div>
+</div>
 
-</div><!-- /wrapper -->
-
-<!-- Chatbot Panel -->
-<div class="chatbot-panel" id="chatbotPanel">
-  <div class="chatbot-panel-header">
-    <h3>🤖 AI Health Assistant</h3>
-    <button class="chatbot-close" onclick="toggleChat()">×</button>
-  </div>
-  <div class="chatbot-messages" id="chatMessages">
-    <div class="chatbot-welcome">
-      <div class="icon">💬</div>
-      <p>Hey! I'm your assistant advisor.<br/>Predict an AQI first, then ask me anything about health, masks, exercise, precautions, and more!</p>
+<!-- Chatbot -->
+<div class="chat-panel" id="chatPanel">
+  <div class="chat-hdr"><h3>🤖 AI Health Assistant</h3><button class="chat-close" onclick="toggleChat()">×</button></div>
+  <div class="chat-msgs" id="chatMsgs">
+    <div class="chat-welcome">
+      <div style="font-size:2.5rem">💬</div>
+      <p>Hi! I'm your AI health assistant.<br/>Make a prediction first, then ask me about health effects, masks, exercise, precautions, and more!</p>
     </div>
   </div>
-  <div class="chatbot-footer">
-    <input type="text" id="chatInput" placeholder="Type your question…" />
-    <button onclick="sendMessage()">Send</button>
+  <div class="chat-foot">
+    <input type="text" id="chatIn" placeholder="Ask me anything…"/>
+    <button onclick="sendMsg()">Send</button>
   </div>
 </div>
 
-<!-- Toast -->
 <div id="toast"></div>
 
 <script>
-  /* ═══════════════════════════════════════════════════════
-     CONFIG
-  ═══════════════════════════════════════════════════════ */
-  const API_BASE = "http://127.0.0.1:5000";
-
-  const FIELDS = {
-    pm25: { key: "PM2_5", min: 0,   max: 500  },
-    pm10: { key: "PM10",  min: 0,   max: 604  },
-    no2:  { key: "NO2",   min: 0,   max: 2049 },
-    so2:  { key: "SO2",   min: 0,   max: 1004 },
-    co:   { key: "CO",    min: 0,   max: 50.4 },
-    o3:   { key: "O3",    min: 0,   max: 200  },
-  };
-
-  const HEALTHY = {
-    pm25: [0, 12], pm10: [0, 54], no2: [0, 53],
-    so2:  [0, 35], co:   [0, 4.4], o3: [0, 54],
-  };
-
-  const SAMPLE = {
-    pm25: [5,150], pm10: [10,300], no2: [10,200],
-    so2:  [5,100], co:   [0.5,15], o3:  [10,120],
-  };
-
-  let gaugeChart  = null;
-  let lastAQI     = null;
-  let lastCategory= null;
-
-  /* ═══════════════════════════════════════════════════════
-     API HEALTH CHECK
-  ═══════════════════════════════════════════════════════ */
-  async function checkHealth() {
-    try {
-      const res  = await fetch(`${API_BASE}/health`, { signal: AbortSignal.timeout(3000) });
-      const json = await res.json();
-      if (json.status === "ok") {
-        document.getElementById("statusDot").classList.add("connected");
-        document.getElementById("statusText").textContent = "API Connected · Ready";
-      }
-    } catch {
-      document.getElementById("statusDot").classList.remove("connected");
-      document.getElementById("statusText").textContent = "API Offline";
-    }
+/* ── Scene builder ──────────────────────────────────────────────────────────── */
+(function(){
+  // Stars
+  const starsEl=document.getElementById("stars");
+  for(let i=0;i<80;i++){
+    const s=document.createElement("div");
+    s.className="star";
+    const sz=Math.random()*2+0.5;
+    s.style.cssText=`width:${sz}px;height:${sz}px;left:${Math.random()*100}%;top:${Math.random()*55}%;animation-duration:${Math.random()*3+2}s;animation-delay:${Math.random()*4}s`;
+    starsEl.appendChild(s);
   }
 
-  /* ═══════════════════════════════════════════════════════
-     LOCATION FETCH
-  ═══════════════════════════════════════════════════════ */
-  async function fetchCity() {
-    const city = document.getElementById("locationInput").value.trim();
-    if (!city) { showToast("Please enter a city name.", true); return; }
-
-    const btn    = document.getElementById("locationBtn");
-    const status = document.getElementById("locationStatus");
-
-    btn.disabled       = true;
-    btn.textContent    = "⏳ Fetching…";
-    status.textContent = "Loading real air quality data…";
-    status.className   = "location-status";
-
-    try {
-      const res  = await fetch(`${API_BASE}/location/${encodeURIComponent(city)}`);
-      const data = await res.json();
-
-      if (!res.ok) throw new Error(data.error || "City not found");
-
-      document.getElementById("pm25").value = data.PM2_5;
-      document.getElementById("pm10").value = data.PM10;
-      document.getElementById("no2").value  = data.NO2;
-      document.getElementById("so2").value  = data.SO2;
-      document.getElementById("co").value   = data.CO;
-      document.getElementById("o3").value   = data.O3;
-
-      clearFieldErrors();
-      status.className   = "location-status success";
-      status.textContent = `✅ Loaded: ${data.city}, ${data.country}`;
-      showToast(`Data loaded for ${data.city}! Click Predict.`);
-
-    } catch (err) {
-      status.className   = "location-status error";
-      status.textContent = `❌ ${err.message}`;
-      showToast(err.message, true);
-    } finally {
-      btn.disabled    = false;
-      btn.textContent = "📍 Get Data";
-    }
-  }
-
-  /* ═══════════════════════════════════════════════════════
-     VALIDATION
-  ═══════════════════════════════════════════════════════ */
-  function validateInputs() {
-    let ok = true;
-    for (const [id, cfg] of Object.entries(FIELDS)) {
-      const input = document.getElementById(id);
-      const err   = document.getElementById(`${id}-err`);
-      const val   = parseFloat(input.value);
-
-      input.classList.remove("error");
-      err.classList.remove("show");
-
-      if (input.value.trim() === "" || isNaN(val)) {
-        input.classList.add("error");
-        err.textContent = "Required.";
-        err.classList.add("show");
-        ok = false;
-      } else if (val < cfg.min || val > cfg.max) {
-        input.classList.add("error");
-        err.textContent = `Range: ${cfg.min} – ${cfg.max}`;
-        err.classList.add("show");
-        ok = false;
-      }
-    }
-    return ok;
-  }
-
-  function clearFieldErrors() {
-    for (const id of Object.keys(FIELDS)) {
-      document.getElementById(id).classList.remove("error");
-      document.getElementById(`${id}-err`).classList.remove("show");
-    }
-  }
-
-  /* ═══════════════════════════════════════════════════════
-     PREDICT
-  ═══════════════════════════════════════════════════════ */
-  async function handlePredict() {
-    if (!validateInputs()) return;
-
-    const btn = document.getElementById("predictBtn");
-    btn.disabled   = true;
-    btn.innerHTML  = '<span class="spinner"></span>Predicting…';
-
-    const payload = {};
-    for (const [id, cfg] of Object.entries(FIELDS)) {
-      payload[cfg.key] = parseFloat(document.getElementById(id).value);
-    }
-
-    try {
-      const res  = await fetch(`${API_BASE}/predict`, {
-        method:  "POST",
-        headers: { "Content-Type": "application/json" },
-        body:    JSON.stringify(payload),
-      });
-      const json = await res.json();
-
-      if (!res.ok) { showToast(json.error || "Prediction failed.", true); return; }
-
-      lastAQI      = json.aqi_epa;
-      lastCategory = json.category;
-      renderResult(json);
-      loadHistory();
-      addBotMsg(buildGreeting(json.category, json.aqi_epa));
-
-    } catch {
-      showToast("Cannot reach API. Make sure Flask is running.", true);
-    } finally {
-      btn.disabled  = false;
-      btn.textContent = "Predict AQI";
-    }
-  }
-
-  /* ═══════════════════════════════════════════════════════
-     RENDER RESULT
-  ═══════════════════════════════════════════════════════ */
-  function renderResult(data) {
-    const { aqi_epa, aqi_model, category, colour } = data;
-    document.getElementById("resultArea").innerHTML = `
-      <div class="aqi-display">
-        <div class="aqi-number" style="color:${colour}">${Math.round(aqi_epa)}</div>
-        <div class="aqi-meta">
-          <div class="aqi-badge" style="color:${colour};border-color:${colour}">${category}</div>
-          <div class="aqi-sub">US-EPA AQI</div>
-          <div class="aqi-sub" style="margin-top:4px">Model: ${aqi_model}</div>
-        </div>
-      </div>
-      <div class="gauge-wrap">
-        <canvas id="gaugeCanvas"></canvas>
-      </div>
-    `;
-    drawGauge(aqi_epa, colour);
-  }
-
-  function drawGauge(value, colour) {
-    if (gaugeChart) gaugeChart.destroy();
-    const ctx = document.getElementById("gaugeCanvas").getContext("2d");
-    const pct = Math.min(value / 500, 1);
-    gaugeChart = new Chart(ctx, {
-      type: "doughnut",
-      data: {
-        datasets: [{
-          data: [pct, 1 - pct],
-          backgroundColor: [colour, "#1c2535"],
-          borderColor:     ["transparent", "transparent"],
-          borderRadius:    [6, 0],
-        }]
-      },
-      options: {
-        cutout: "72%", rotation: -90, circumference: 180, responsive: true,
-        plugins: { legend: { display: false }, tooltip: { enabled: false } },
-        animation: { duration: 800, easing: "easeOutQuart" },
-      },
-      plugins: [{
-        id: "label",
-        afterDraw(chart) {
-          const { ctx, chartArea: { left, right, top, bottom } } = chart;
-          const cx = (left + right) / 2;
-          const cy = (top  + bottom) / 2 + 22;
-          ctx.save();
-          ctx.font      = "bold 12px 'Space Mono', monospace";
-          ctx.fillStyle = "#64748b";
-          ctx.textAlign = "center";
-          ctx.fillText("AQI  0 – 500", cx, cy + 10);
-          ctx.restore();
-        }
-      }]
-    });
-  }
-
-  /* ═══════════════════════════════════════════════════════
-     HISTORY
-  ═══════════════════════════════════════════════════════ */
-  async function loadHistory() {
-    try {
-      const res  = await fetch(`${API_BASE}/history`);
-      const json = await res.json();
-      renderHistory(json.records || []);
-    } catch {}
-  }
-
-  function renderHistory(records) {
-    const tbody = document.getElementById("historyBody");
-    if (!records.length) {
-      tbody.innerHTML = '<tr class="empty-row"><td colspan="11">No predictions yet.</td></tr>';
-      return;
-    }
-    tbody.innerHTML = records.map((r, i) => {
-      const ts = (r.timestamp || "").replace("T", " ").substring(0, 19);
-      return `
-        <tr>
-          <td>${records.length - i}</td>
-          <td>${ts || "—"}</td>
-          <td>${r.pm2_5   ?? "—"}</td>
-          <td>${r.pm10    ?? "—"}</td>
-          <td>${r.no2     ?? "—"}</td>
-          <td>${r.so2     ?? "—"}</td>
-          <td>${r.co      ?? "—"}</td>
-          <td>${r.o3      ?? "—"}</td>
-          <td><strong>${r.aqi_epa   ?? "—"}</strong></td>
-          <td>${r.aqi_model ?? "—"}</td>
-          <td>
-            <span class="badge-sm" style="color:${r.colour};border-color:${r.colour}">
-              ${r.category}
-            </span>
-          </td>
-        </tr>`;
-    }).join("");
-  }
-
-  function clearHistory() {
-    if (!confirm("Delete all prediction history? This cannot be undone.")) return;
-    fetch(`${API_BASE}/clear-history`, { method: "POST" })
-      .then(r => r.json())
-      .then(d => { loadHistory(); showToast(`Deleted ${d.records_deleted} record(s).`); })
-      .catch(() => { loadHistory(); showToast("History cleared."); });
-  }
-
-  /* ═══════════════════════════════════════════════════════
-     HELPER BUTTONS
-  ═══════════════════════════════════════════════════════ */
-  function fillSample() {
-    for (const [id, [lo, hi]] of Object.entries(SAMPLE)) {
-      document.getElementById(id).value = rand(lo, hi);
-    }
-    clearFieldErrors();
-    document.getElementById("locationInput").value  = "";
-    document.getElementById("locationStatus").textContent = "";
-    showToast("Sample data loaded. Click Predict!");
-  }
-
-  function fillHealthy() {
-    for (const [id, [lo, hi]] of Object.entries(HEALTHY)) {
-      document.getElementById(id).value = rand(lo, hi);
-    }
-    clearFieldErrors();
-    document.getElementById("locationInput").value  = "";
-    document.getElementById("locationStatus").textContent = "";
-    showToast("Healthy data loaded (AQI 0-50). Click Predict!");
-  }
-
-  function clearForm() {
-    for (const id of Object.keys(FIELDS)) {
-      document.getElementById(id).value = "";
-    }
-    clearFieldErrors();
-    document.getElementById("locationInput").value        = "";
-    document.getElementById("locationStatus").textContent = "";
-    document.getElementById("resultArea").innerHTML =
-      '<div class="placeholder-msg">← Enter values and click Predict</div>';
-    if (gaugeChart) { gaugeChart.destroy(); gaugeChart = null; }
-  }
-
-  function rand(lo, hi) {
-    return parseFloat((Math.random() * (hi - lo) + lo).toFixed(1));
-  }
-
-  /* ═══════════════════════════════════════════════════════
-     TOAST
-  ═══════════════════════════════════════════════════════ */
-  let toastTimer;
-  function showToast(msg, isError = false) {
-    const t = document.getElementById("toast");
-    t.textContent = msg;
-    t.className   = isError ? "show error" : "show";
-    clearTimeout(toastTimer);
-    toastTimer = setTimeout(() => { t.className = ""; }, 3500);
-  }
-
-  /* ═══════════════════════════════════════════════════════
-     CHATBOT
-  ═══════════════════════════════════════════════════════ */
-  function toggleChat() {
-    document.getElementById("chatbotPanel").classList.toggle("open");
-  }
-
-  function addBotMsg(text) {
-    const box = document.getElementById("chatMessages");
-    // remove welcome screen on first message
-    const welcome = box.querySelector(".chatbot-welcome");
-    if (welcome) welcome.remove();
-
-    const div = document.createElement("div");
-    div.className   = "chat-msg bot";
-    div.textContent = text;
-    box.appendChild(div);
-    box.scrollTop = box.scrollHeight;
-  }
-
-  function addUserMsg(text) {
-    const box = document.getElementById("chatMessages");
-    const welcome = box.querySelector(".chatbot-welcome");
-    if (welcome) welcome.remove();
-
-    const div = document.createElement("div");
-    div.className   = "chat-msg user";
-    div.textContent = text;
-    box.appendChild(div);
-    box.scrollTop = box.scrollHeight;
-  }
-
-  function buildGreeting(category, aqi) {
-    return `AQI is ${Math.round(aqi)} — ${category}.\nAsk me about precautions, masks, exercise, health effects or indoor air tips!`;
-  }
-
-  function sendMessage() {
-    const input = document.getElementById("chatInput");
-    const text  = input.value.trim();
-    if (!text) return;
-    addUserMsg(text);
-    input.value = "";
-    setTimeout(() => addBotMsg(getResponse(text)), 400);
-  }
-
-  function getResponse(text) {
-    const t = text.toLowerCase();
-
-    if (!lastCategory) {
-      return "Please make a prediction first so I can give you personalised advice! 😊";
-    }
-
-    const aqi      = Math.round(lastAQI);
-    const category = lastCategory;
-
-    // Greeting
-    if (/^(hi|hello|hey|good morning|good evening)/i.test(t)) {
-      return `Hi there! 👋\nYour current AQI is ${aqi} (${category}).\nAsk me about precautions, masks, exercise, health effects, or indoor air quality!`;
-    }
-
-    // What is AQI
-    if (t.includes("what is aqi") || t.includes("explain aqi")) {
-      return "📊 AQI (Air Quality Index) Scale:\n• 0–50   → Good ✅\n• 51–100 → Moderate 🟡\n• 101–150 → Unhealthy for Sensitive Groups 🟠\n• 151–200 → Unhealthy 🔴\n• 201–300 → Very Unhealthy 🟣\n• 301–500 → Hazardous ⚫\nHigher = worse air quality.";
-    }
-
-    // Current status
-    if (t.includes("current") || t.includes("my aqi") || t.includes("status") || t.includes("how is")) {
-      const icon = aqi <= 50 ? "✅" : aqi <= 100 ? "🟡" : aqi <= 150 ? "🟠" : aqi <= 200 ? "🔴" : "🟣";
-      return `${icon} Your AQI: ${aqi} — ${category}\n${aqi > 150 ? "⚠️ Take precautions!" : aqi > 100 ? "Sensitive groups should be careful." : "Air quality is acceptable."}`;
-    }
-
-    // Precautions / Safety
-    if (t.includes("precaution") || t.includes("safe") || t.includes("protect") || t.includes("what should i")) {
-      if (aqi > 200) return "🛡️ Precautions (Hazardous):\n• Stay indoors, seal windows\n• Use N95+ masks if going out\n• Run HEPA air purifier\n• Avoid all outdoor activity\n• Seek medical help if unwell";
-      if (aqi > 150) return "🛡️ Precautions (Unhealthy):\n• Limit outdoor time\n• Wear N95 mask outside\n• Keep windows closed\n• Use air purifier indoors\n• Avoid strenuous activity";
-      if (aqi > 100) return "🛡️ Precautions (Sensitive):\n• Sensitive groups stay indoors\n• N95 mask recommended\n• Limit outdoor time\n• Hydrate well";
-      return "✅ Air quality is OK!\nNo major precautions needed. Enjoy outdoor activities.";
-    }
-
-    // Masks
-    if (t.includes("mask") || t.includes("respirator")) {
-      if (aqi > 200) return "🎭 Masks:\n• N95 or P100 required\n• Ensure a tight seal\n• Replace daily\n• Do NOT use cloth masks — they don't help";
-      if (aqi > 150) return "🎭 Masks:\n• N95 / KN95 recommended\n• Check the seal before wearing\n• Change when damp or damaged";
-      if (aqi > 100) return "🎭 Masks:\n• N95 for sensitive groups\n• Cloth masks give minimal protection";
-      return "🎭 Masks:\n• Not necessary right now\n• Air quality is safe";
-    }
-
-    // Exercise / Outdoor
-    if (t.includes("exercise") || t.includes("run") || t.includes("jog") || t.includes("sport") || t.includes("outdoor") || t.includes("play")) {
-      if (aqi > 200) return "❌ Outdoor Exercise:\nDo NOT exercise outdoors.\n• Strenuous activity makes you inhale more pollutants\n• Use indoor gym with air purifier";
-      if (aqi > 150) return "⚠️ Outdoor Exercise:\n• Avoid all strenuous outdoor activity\n• Light indoor exercise only\n• Go out only if absolutely necessary";
-      if (aqi > 100) return "⚠️ Outdoor Exercise:\n• Sensitive groups: stay indoors\n• General public: light exercise OK\n• Avoid peak hours (7–10 AM, 6–9 PM)";
-      return "✅ Exercise:\n• Perfect for outdoor activities!\n• Jogging, cycling, sports all safe\n• Great day to be outside";
-    }
-
-    // Health effects / symptoms
-    if (t.includes("symptom") || t.includes("effect") || t.includes("health") || t.includes("sick") || t.includes("disease") || t.includes("cough") || t.includes("breath")) {
-      if (aqi > 200) return "🏥 Health Effects (Severe):\n• Severe respiratory distress\n• Chest pain or tightness\n• Headaches, dizziness\n⚠️ Call a doctor immediately if you feel unwell!";
-      if (aqi > 150) return "🏥 Health Effects:\n• Respiratory irritation\n• Worsened asthma\n• Coughing, throat soreness\n• Consult doctor if symptoms persist";
-      if (aqi > 100) return "🏥 Health Effects:\n• Mild irritation possible\n• Sensitive groups more at risk\n• Monitor for cough or eye irritation";
-      return "🏥 Health Effects:\n• Minimal risk at current AQI\n• No health concerns for most people\n• Enjoy your day!";
-    }
-
-    // Indoor / Air purifier
-    if (t.includes("indoor") || t.includes("purif") || t.includes("inside") || t.includes("home") || t.includes("room")) {
-      if (aqi > 150) return "💨 Indoor Air:\n• Seal all windows and doors\n• Run HEPA purifier 24/7\n• Change purifier filter weekly\n• Avoid cooking smoke indoors\n• Use air quality monitor";
-      return "💨 Indoor Air Tips:\n• Run air purifier regularly\n• Change AC filters monthly\n• Add air-purifying plants\n• Ventilate during low-pollution hours (midday)";
-    }
-
-    // Children / elderly / vulnerable
-    if (t.includes("child") || t.includes("kid") || t.includes("baby") || t.includes("elderly") || t.includes("old") || t.includes("pregnant") || t.includes("asthma")) {
-      return `👨‍👩‍👧 Vulnerable Groups (AQI ${aqi}):\n• Keep children & elderly indoors\n• Avoid outdoor playtime\n• Ensure they wear proper masks outside\n• Keep inhalers and medications ready\n• Watch for breathing difficulty`;
-    }
-
-    // Water / hydration
-    if (t.includes("water") || t.includes("drink") || t.includes("hydrat")) {
-      return "💧 Hydration:\n• Drink more water — pollution stresses the body\n• Warm water with honey soothes the throat\n• Avoid excessive caffeine\n• Stay hydrated throughout the day";
-    }
-
-    // Work / school / travel
-    if (t.includes("work") || t.includes("school") || t.includes("office") || t.includes("commut") || t.includes("travel")) {
-      if (aqi > 150) return `🏢 Work / Travel (AQI ${aqi}):\n• Wear N95 mask during commute\n• Request work from home if possible\n• Avoid outdoor lunch breaks\n• Minimize time spent outdoors`;
-      return `🏢 Work / Travel (AQI ${aqi}):\n• Normal activities are fine\n• Wear mask on crowded transport\n• Stay hydrated during your commute`;
-    }
-
-    // Causes / sources
-    if (t.includes("cause") || t.includes("source") || t.includes("why") || t.includes("reason") || t.includes("where")) {
-      return "❓ Common Pollution Sources:\n• Vehicle emissions\n• Industrial factories\n• Crop/waste burning\n• Construction dust\n• Power plants\n• Domestic cooking (firewood)";
-    }
-
-    // Suggestions
-    if (t.includes("suggest") || t.includes("recommend") || t.includes("tip") || t.includes("advice")) {
-      if (aqi > 150) return `💡 Advice (AQI ${aqi}):\n• Stay indoors as much as possible\n• Wear N95 mask outdoors\n• Use HEPA air purifier\n• Drink warm fluids\n• Avoid strenuous activities`;
-      if (aqi > 100) return `💡 Advice (AQI ${aqi}):\n• Limit outdoor time\n• Sensitive groups wear masks\n• Use air purifier indoors\n• Monitor for symptoms`;
-      return `💡 Advice (AQI ${aqi}):\n• Enjoy outdoor activities\n• Keep monitoring AQI\n• Stay hydrated\n• Open windows for fresh air`;
-    }
-
-    // Default
-    return `I'm here to help! 🌿 You can ask about:\n• Precautions & safety\n• Which masks to wear\n• Exercise & outdoor safety\n• Health effects & symptoms\n• Indoor air quality\n• Advice for children / elderly\n• Pollution causes`;
-  }
-
-  /* ═══════════════════════════════════════════════════════
-     KEYBOARD SHORTCUTS
-  ═══════════════════════════════════════════════════════ */
-  document.addEventListener("keydown", (e) => {
-    if (e.key === "Enter") {
-      const active = document.activeElement;
-      if (active === document.getElementById("chatInput"))    sendMessage();
-      if (active === document.getElementById("locationInput")) fetchCity();
-    }
+  // Clouds
+  const cloudsEl=document.getElementById("clouds");
+  const cloudData=[
+    {top:12,width:220,height:40,opacity:0.18,dur:90,delay:0},
+    {top:18,width:300,height:55,opacity:0.14,dur:120,delay:-30},
+    {top:8,width:180,height:32,opacity:0.22,dur:70,delay:-15},
+    {top:25,width:260,height:45,opacity:0.12,dur:100,delay:-50},
+    {top:15,width:200,height:38,opacity:0.16,dur:85,delay:-40},
+  ];
+  cloudData.forEach(cl=>{
+    const c=document.createElement("div");
+    c.className="cloud";
+    c.style.cssText=`width:${cl.width}px;height:${cl.height}px;top:${cl.top}%;background:rgba(255,220,180,${cl.opacity});filter:blur(8px);animation-duration:${cl.dur}s;animation-delay:${cl.delay}s`;
+    cloudsEl.appendChild(c);
   });
 
-  /* ═══════════════════════════════════════════════════════
-     INIT
-  ═══════════════════════════════════════════════════════ */
-  checkHealth();
-  setInterval(checkHealth, 10000);
-  loadHistory();
+  // Flowers and trees
+  const flowerEl=document.getElementById("flowers");
+
+  // Trees (silhouette)
+  const treePositions=[2,8,14,82,88,94,97];
+  treePositions.forEach(left=>{
+    const tree=document.createElement("div");
+    tree.className="tree";
+    tree.style.left=left+"%";
+    const h=Math.random()*80+60;
+    const w=Math.random()*30+20;
+    tree.innerHTML=`
+      <div class="tree-top" style="border-bottom:${h*0.7}px solid #0d1a06;border-left:${w/2}px solid transparent;border-right:${w/2}px solid transparent;width:0"></div>
+      <div class="tree-trunk" style="width:${w*0.2}px;height:${h*0.35}px"></div>
+    `;
+    flowerEl.appendChild(tree);
+  });
+
+  // Flowers
+  const flowerTypes=[
+    // [petalColor, centerColor, petalCount, size, stemH]
+    ["#ff6b9d","#ffdd57",5,14,60],  // pink rose
+    ["#ff4444","#ffd700",6,13,55],  // red poppy
+    ["#ff8c42","#ff6b00",5,12,50],  // orange
+    ["#c77dff","#fff176",5,11,65],  // purple
+    ["#fff176","#ff8c00",8,14,70],  // yellow sunflower
+    ["#ff99cc","#ffecb3",5,10,45],  // light pink
+    ["#66bb6a","#fff176",4,9,40],   // green-ish
+    ["#ff6e7f","#ffd54f",6,13,58],  // deep pink
+    ["#ba68c8","#ffcc02",5,12,62],  // violet
+    ["#42a5f5","#fff176",5,11,48],  // blue flower
+  ];
+
+  // Spread flowers across the ground
+  for(let i=0;i<55;i++){
+    const left=5+Math.random()*90;
+    const ft=flowerTypes[Math.floor(Math.random()*flowerTypes.length)];
+    const [pColor,cColor,petals,size,stemH]=ft;
+    const sway=Math.random()*3-1.5;
+    const scale=0.7+Math.random()*0.7;
+    const actualStem=stemH*scale;
+    const actualSize=size*scale;
+
+    const flower=document.createElement("div");
+    flower.className="flower";
+    flower.style.cssText=`left:${left}%;bottom:${Math.random()*12}%;animation:sway${Math.random()>0.5?"A":"B"} ${2+Math.random()*3}s ease-in-out infinite alternate`;
+
+    // Build petals
+    let petalsHTML="";
+    for(let p=0;p<petals;p++){
+      const angle=(360/petals)*p;
+      const pw=actualSize*0.55,ph=actualSize*0.9;
+      petalsHTML+=`<div class="petal" style="width:${pw}px;height:${ph}px;background:${pColor};transform:rotate(${angle}deg) translateY(-${actualSize*0.45}px);filter:drop-shadow(0 1px 2px rgba(0,0,0,0.3))"></div>`;
+    }
+
+    flower.innerHTML=`
+      <div class="bloom" style="width:${actualSize*2}px;height:${actualSize*2}px;margin-bottom:-2px">
+        ${petalsHTML}
+        <div class="center" style="width:${actualSize*0.7}px;height:${actualSize*0.7}px;background:${cColor}"></div>
+      </div>
+      <div class="stem" style="height:${actualStem}px"></div>
+    `;
+    flowerEl.appendChild(flower);
+  }
+
+  // Fireflies
+  const ffEl=document.getElementById("particles");
+  for(let i=0;i<25;i++){
+    const d=document.createElement("div");
+    d.className="dot";
+    const sz=Math.random()*3+1.5;
+    d.style.cssText=`
+      width:${sz}px;height:${sz}px;
+      left:${10+Math.random()*80}%;
+      bottom:${5+Math.random()*35}%;
+      background:rgba(255,255,150,0.9);
+      box-shadow:0 0 6px 3px rgba(255,255,100,0.5);
+      animation-duration:${2+Math.random()*4}s;
+      animation-delay:${Math.random()*6}s;
+    `;
+    ffEl.appendChild(d);
+  }
+})();
+
+/* ── Config ─────────────────────────────────────────────────────────────────── */
+const API = location.hostname==="127.0.0.1"||location.hostname==="localhost"
+  ? "http://127.0.0.1:5000"
+  : window.location.origin;
+
+const FIELDS={pm25:{k:"PM2_5",min:0,max:500},pm10:{k:"PM10",min:0,max:604},
+              no2:{k:"NO2",min:0,max:2049},so2:{k:"SO2",min:0,max:1004},
+              co:{k:"CO",min:0,max:50.4},o3:{k:"O3",min:0,max:200}};
+const HEALTHY={pm25:[0,12],pm10:[0,54],no2:[0,53],so2:[0,35],co:[0,4.4],o3:[0,54]};
+const SAMPLE ={pm25:[5,150],pm10:[10,300],no2:[10,200],so2:[5,100],co:[.5,15],o3:[10,120]};
+
+let gauge=null,lastAQI=null,lastCat=null,connected=false,poll=null;
+
+/* ── Connect ─────────────────────────────────────────────────────────────────── */
+async function handleConnect(){
+  if(connected)return;
+  setConnecting();
+  try{
+    const r=await fetch(`${API}/health`,{signal:AbortSignal.timeout(3000)});
+    const j=await r.json();
+    if(j.model_loaded){setConnected();loadHist();return;}
+    if(j.pipeline_step==="idle"||j.pipeline_step==="starting"){
+      await fetch(`${API}/start-pipeline`,{method:"POST"});
+    }
+    startPoll();
+  }catch{
+    setError();
+    toast("Flask is not running. Run: python app.py",true);
+  }
+}
+
+function setConnecting(){
+  document.getElementById("conBtn").className="connect-btn connecting";
+  document.getElementById("sdot").className="sdot spin";
+  document.getElementById("conTxt").textContent="Connecting...";
+}
+function setConnected(){
+  connected=true;
+  document.getElementById("conBtn").className="connect-btn connected";
+  document.getElementById("sdot").className="sdot on";
+  document.getElementById("conTxt").textContent="API Connected · Ready";
+  document.getElementById("overlay").className="";
+  toast("✅ API connected! Ready to predict.");
+}
+function setError(){
+  document.getElementById("conBtn").className="connect-btn error-state";
+  document.getElementById("sdot").className="sdot";
+  document.getElementById("conTxt").textContent="Error — Click to retry";
+}
+
+function startPoll(){
+  document.getElementById("overlay").className="show";
+  if(poll)clearInterval(poll);
+  poll=setInterval(async()=>{
+    try{
+      const r=await fetch(`${API}/pipeline-status`,{signal:AbortSignal.timeout(3000)});
+      const j=await r.json();
+      updateOverlay(j);
+      if(j.step==="done"){clearInterval(poll);setTimeout(()=>{setConnected();loadHist();},600);}
+      else if(j.step==="error"){clearInterval(poll);document.getElementById("overlay").className="";setError();toast("Error: "+j.message,true);}
+    }catch{}
+  },1500);
+}
+
+function updateOverlay(s){
+  document.getElementById("ovMsg").textContent=s.message||"Processing...";
+  document.getElementById("progBar").style.width=(s.progress||0)+"%";
+  document.getElementById("progPct").textContent=(s.progress||0)+"%";
+  const [s1,s2,s3]=[document.getElementById("s1"),document.getElementById("s2"),document.getElementById("s3")];
+  s1.className=s2.className=s3.className="step";
+  if(s.step==="preprocessing")s1.className="step active";
+  else if(s.step==="training"){s1.className="step done";s2.className="step active";}
+  else if(s.step==="loading"){s1.className="step done";s2.className="step done";s3.className="step active";}
+  else if(s.step==="done"){s1.className="step done";s2.className="step done";s3.className="step done";}
+}
+
+/* Auto check on load */
+(async()=>{
+  try{
+    const r=await fetch(`${API}/health`,{signal:AbortSignal.timeout(2000)});
+    const j=await r.json();
+    if(j.model_loaded){setConnected();loadHist();}
+    else if(j.pipeline_step!=="idle")startPoll();
+  }catch{}
+})();
+
+/* ── City fetch ──────────────────────────────────────────────────────────────── */
+async function getCity(){
+  const city=document.getElementById("locIn").value.trim();
+  if(!city){toast("Enter a city name.",true);return;}
+  const btn=document.getElementById("locBtn"),st=document.getElementById("locSt");
+  btn.disabled=true;btn.textContent="⏳ Fetching…";
+  st.textContent="Loading air quality data…";st.className="loc-status";
+  try{
+    const r=await fetch(`${API}/location/${encodeURIComponent(city)}`);
+    const d=await r.json();
+    if(!r.ok)throw new Error(d.error||"Not found");
+    document.getElementById("pm25").value=d.PM2_5;
+    document.getElementById("pm10").value=d.PM10;
+    document.getElementById("no2").value=d.NO2;
+    document.getElementById("so2").value=d.SO2;
+    document.getElementById("co").value=d.CO;
+    document.getElementById("o3").value=d.O3;
+    clearErrs();
+    st.className="loc-status ok";
+    st.textContent=`✅ Loaded: ${d.city}, ${d.country}`;
+    toast(`Data loaded for ${d.city}! Click Predict.`);
+  }catch(e){
+    st.className="loc-status err";st.textContent=`❌ ${e.message}`;toast(e.message,true);
+  }finally{btn.disabled=false;btn.textContent="📍 Get Data";}
+}
+
+/* ── Validate ─────────────────────────────────────────────────────────────────── */
+function validate(){
+  let ok=true;
+  for(const[id,c]of Object.entries(FIELDS)){
+    const inp=document.getElementById(id),err=document.getElementById(id+"e");
+    const v=parseFloat(inp.value);
+    inp.classList.remove("error");err.classList.remove("show");
+    if(inp.value.trim()===""||isNaN(v)){inp.classList.add("error");err.textContent="Required.";err.classList.add("show");ok=false;}
+    else if(v<c.min||v>c.max){inp.classList.add("error");err.textContent=`${c.min}–${c.max}`;err.classList.add("show");ok=false;}
+  }
+  return ok;
+}
+function clearErrs(){for(const id of Object.keys(FIELDS)){document.getElementById(id).classList.remove("error");document.getElementById(id+"e").classList.remove("show");}}
+
+/* ── Predict ──────────────────────────────────────────────────────────────────── */
+async function doPredict(){
+  if(!validate())return;
+  const btn=document.getElementById("predBtn");
+  btn.disabled=true;btn.innerHTML='<span class="spin"></span>Predicting…';
+  const p={};for(const[id,c]of Object.entries(FIELDS))p[c.k]=parseFloat(document.getElementById(id).value);
+  try{
+    const r=await fetch(`${API}/predict`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(p)});
+    const j=await r.json();
+    if(!r.ok){toast(j.error||"Failed.",true);return;}
+    lastAQI=j.aqi_epa;lastCat=j.category;
+    renderResult(j);loadHist();
+    addBot(greeting(j.category,j.aqi_epa));
+  }catch{toast("Cannot reach API. Is Flask running?",true);}
+  finally{btn.disabled=false;btn.textContent="Predict AQI";}
+}
+
+/* ── Render Result ────────────────────────────────────────────────────────────── */
+function renderResult(d){
+  document.getElementById("result").innerHTML=`
+    <div class="aqi-display">
+      <div class="aqi-num" style="color:${d.colour}">${Math.round(d.aqi_epa)}</div>
+      <div class="aqi-meta">
+        <div class="aqi-badge" style="color:${d.colour};border-color:${d.colour}">${d.category}</div>
+        <div class="aqi-sub">US-EPA AQI</div>
+        <div class="aqi-sub" style="margin-top:4px">ML Model: ${d.aqi_model}</div>
+      </div>
+    </div>
+    <div class="gauge-wrap"><canvas id="gc"></canvas></div>`;
+  if(gauge)gauge.destroy();
+  const ctx=document.getElementById("gc").getContext("2d");
+  const pct=Math.min(d.aqi_epa/500,1);
+  gauge=new Chart(ctx,{
+    type:"doughnut",
+    data:{datasets:[{data:[pct,1-pct],backgroundColor:[d.colour,"rgba(255,255,255,0.04)"],borderColor:["transparent","transparent"],borderRadius:[6,0]}]},
+    options:{cutout:"72%",rotation:-90,circumference:180,responsive:true,plugins:{legend:{display:false},tooltip:{enabled:false}},animation:{duration:800,easing:"easeOutQuart"}},
+    plugins:[{id:"c",afterDraw(c){const{ctx:x,chartArea:{left:l,right:r,top:t,bottom:b}}=c;const cx=(l+r)/2,cy=(t+b)/2+20;x.save();x.font="bold 11px 'Space Mono',monospace";x.fillStyle="#64748b";x.textAlign="center";x.fillText("AQI 0–500",cx,cy+10);x.restore();}}]
+  });
+}
+
+/* ── History ──────────────────────────────────────────────────────────────────── */
+async function loadHist(){
+  try{const r=await fetch(`${API}/history`);const j=await r.json();renderHist(j.records||[]);}catch{}
+}
+function renderHist(recs){
+  const tbody=document.getElementById("histBody");
+  if(!recs.length){tbody.innerHTML='<tr class="empty-row"><td colspan="11">No predictions yet.</td></tr>';return;}
+  tbody.innerHTML=recs.map((r,i)=>{
+    const ts=(r.timestamp||"").replace("T"," ").substring(0,19);
+    return`<tr><td>${recs.length-i}</td><td>${ts||"—"}</td><td>${r.pm2_5??"—"}</td><td>${r.pm10??"—"}</td><td>${r.no2??"—"}</td><td>${r.so2??"—"}</td><td>${r.co??"—"}</td><td>${r.o3??"—"}</td><td><strong>${r.aqi_epa??"—"}</strong></td><td>${r.aqi_model??"—"}</td><td><span class="badge" style="color:${r.colour};border-color:${r.colour}">${r.category}</span></td></tr>`;
+  }).join("");
+}
+function clearHist(){
+  if(!confirm("Delete all prediction history?"))return;
+  fetch(`${API}/clear-history`,{method:"POST"}).then(r=>r.json()).then(d=>{loadHist();toast(`Deleted ${d.records_deleted} record(s).`);}).catch(()=>{loadHist();toast("History cleared.");});
+}
+
+/* ── Fill helpers ─────────────────────────────────────────────────────────────── */
+function rand(lo,hi){return parseFloat((Math.random()*(hi-lo)+lo).toFixed(1))}
+function fillSample(){for(const[id,[lo,hi]]of Object.entries(SAMPLE))document.getElementById(id).value=rand(lo,hi);clearErrs();document.getElementById("locIn").value="";document.getElementById("locSt").textContent="";toast("Sample data loaded. Click Predict!");}
+function fillHealthy(){for(const[id,[lo,hi]]of Object.entries(HEALTHY))document.getElementById(id).value=rand(lo,hi);clearErrs();document.getElementById("locIn").value="";document.getElementById("locSt").textContent="";toast("Healthy data loaded (AQI 0-50). Click Predict!");}
+function clearForm(){for(const id of Object.keys(FIELDS)){document.getElementById(id).value="";}clearErrs();document.getElementById("locIn").value="";document.getElementById("locSt").textContent="";document.getElementById("result").innerHTML='<div class="placeholder">← Enter values and click Predict</div>';if(gauge){gauge.destroy();gauge=null;}}
+
+/* ── Toast ────────────────────────────────────────────────────────────────────── */
+let tt;
+function toast(msg,isErr=false){
+  const t=document.getElementById("toast");t.textContent=msg;t.className=isErr?"show err":"show";
+  clearTimeout(tt);tt=setTimeout(()=>{t.className=""},3500);
+}
+
+/* ── Chatbot ──────────────────────────────────────────────────────────────────── */
+function toggleChat(){document.getElementById("chatPanel").classList.toggle("open")}
+function addBot(text){
+  const box=document.getElementById("chatMsgs");
+  const w=box.querySelector(".chat-welcome");if(w)w.remove();
+  const d=document.createElement("div");d.className="msg bot";d.textContent=text;
+  box.appendChild(d);box.scrollTop=box.scrollHeight;
+}
+function addUser(text){
+  const box=document.getElementById("chatMsgs");
+  const w=box.querySelector(".chat-welcome");if(w)w.remove();
+  const d=document.createElement("div");d.className="msg user";d.textContent=text;
+  box.appendChild(d);box.scrollTop=box.scrollHeight;
+}
+function greeting(cat,aqi){return`AQI is ${Math.round(aqi)} — ${cat}.\nAsk me about precautions, masks, exercise, health effects or indoor air!`}
+function sendMsg(){
+  const inp=document.getElementById("chatIn");const txt=inp.value.trim();if(!txt)return;
+  addUser(txt);inp.value="";setTimeout(()=>addBot(reply(txt)),400);
+}
+function reply(text){
+  const t=text.toLowerCase();
+  if(!lastCat)return"Make a prediction first so I can give personalised advice! 😊";
+  const aqi=Math.round(lastAQI),cat=lastCat;
+  if(/^(hi|hello|hey)/i.test(t))return`Hi! 👋 Your AQI: ${aqi} (${cat}).\nAsk about precautions, masks, exercise, symptoms or indoor air quality!`;
+  if(t.includes("what is aqi"))return"📊 AQI Scale:\n0-50: Good ✅\n51-100: Moderate 🟡\n101-150: Sensitive Groups 🟠\n151-200: Unhealthy 🔴\n201-300: Very Unhealthy 🟣\n301-500: Hazardous ⚫";
+  if(t.includes("precaution")||t.includes("safe")||t.includes("protect")){
+    if(aqi>200)return"🛡️ CRITICAL:\n• Stay indoors, seal windows\n• N95+ mask mandatory outdoors\n• HEPA purifier on max\n• Avoid ALL outdoor activity\n• Seek medical help if unwell";
+    if(aqi>150)return"🛡️ Precautions:\n• Limit outdoor time\n• Wear N95 mask outside\n• Keep windows closed\n• Use air purifier indoors";
+    if(aqi>100)return"🛡️ Precautions:\n• Sensitive groups stay indoors\n• N95 mask recommended\n• Stay hydrated";
+    return"✅ Air quality OK!\nNo major precautions needed. Enjoy outdoor activities!";
+  }
+  if(t.includes("mask")){
+    if(aqi>200)return"🎭 N95 or P100 required\n• Tight fit essential\n• Replace daily\n• Cloth masks NOT enough";
+    if(aqi>150)return"🎭 N95/KN95 recommended\n• Check seal before wearing";
+    if(aqi>100)return"🎭 N95 for sensitive groups\n• General public: optional";
+    return"🎭 No mask needed — air quality is safe";
+  }
+  if(t.includes("exercise")||t.includes("outdoor")||t.includes("run")||t.includes("sport")){
+    if(aqi>200)return"❌ NO outdoor exercise!\n• Indoor gym only\n• Air-filtered space essential";
+    if(aqi>150)return"⚠️ Avoid outdoor exercise\n• Light indoor activities only";
+    if(aqi>100)return"⚠️ Sensitive groups stay in\n• General public: light outdoor OK\n• Avoid peak hours (7-10AM, 6-9PM)";
+    return"✅ Perfect for outdoor exercise!\n• Jogging, cycling, sports all safe";
+  }
+  if(t.includes("symptom")||t.includes("health")||t.includes("sick")||t.includes("cough")||t.includes("breath")){
+    if(aqi>200)return"🏥 CALL DOCTOR if:\n• Severe chest pain\n• Difficulty breathing\n• Confusion or dizziness\n⚠️ This is a medical emergency!";
+    if(aqi>150)return"🏥 Watch for:\n• Respiratory irritation\n• Asthma attacks\n• Coughing/throat pain\n• Consult doctor if worsens";
+    if(aqi>100)return"🏥 Possible symptoms:\n• Mild cough, eye irritation\n• Monitor closely";
+    return"🏥 No health concerns\n• Air quality is safe today";
+  }
+  if(t.includes("indoor")||t.includes("purif")||t.includes("home")){
+    if(aqi>150)return"💨 Indoor Air:\n• Seal ALL windows\n• HEPA purifier 24/7\n• Change filter weekly\n• Avoid cooking smoke";
+    return"💨 Indoor Tips:\n• Run air purifier regularly\n• Change AC filters monthly\n• Ventilate at midday when AQI is lower";
+  }
+  if(t.includes("child")||t.includes("elderly")||t.includes("pregnant")||t.includes("asthma")){
+    return`👨‍👩‍👧 Vulnerable Groups (AQI ${aqi}):\n• Keep indoors as much as possible\n• N95 masks when going outside\n• Keep inhalers/meds ready\n• Regular health check-ups`;
+  }
+  if(t.includes("cause")||t.includes("source")||t.includes("why")){
+    return"❓ Common Pollution Sources:\n• Vehicle emissions (major)\n• Industrial factories\n• Crop/waste burning\n• Construction dust\n• Power plants";
+  }
+  return`💡 Ask me about:\n• Precautions & safety\n• Mask recommendations\n• Exercise safety\n• Health effects & symptoms\n• Indoor air quality\n• Vulnerable groups`;
+}
+
+document.addEventListener("keydown",e=>{
+  if(e.key==="Enter"){
+    if(document.activeElement===document.getElementById("chatIn"))sendMsg();
+    if(document.activeElement===document.getElementById("locIn"))getCity();
+  }
+});
 </script>
 </body>
 </html>
